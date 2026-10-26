@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Banco Ladder</title>
+<meta name="description" content="Simulador online de diagramas Ladder (KOP): escribí el programa como código o arrastrá contactos y bobinas, y simulalo en vivo.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%230e6a70'/%3E%3Cpath d='M6 6v20M26 6v20M6 16h6M20 16h6M12 9v14M20 9v14' stroke='%23fff' stroke-width='2.4' fill='none'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Condensed:wght@600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+<header class="appbar">
+  <div class="appbar-in">
+    <div class="brand"><span class="logo" aria-hidden="true"></span>Banco Ladder</div>
+    <div class="project">
+      <label class="sr" for="projName">Nombre del proyecto</label>
+      <input id="projName" class="proj-name" maxlength="80" spellcheck="false">
+      <span id="saveState" class="save-state">Guardado</span>
+    </div>
+    <div class="bar-group">
+      <button class="btn" id="btnProjects" aria-haspopup="dialog">Proyectos</button>
+      <button class="btn" id="btnNew">Nuevo</button>
+      <button class="btn" id="btnImport">Abrir archivo</button>
+      <button class="btn" id="btnExport">Guardar archivo</button>
+      <input type="file" id="fileInput" accept=".ladder,.json,.txt" hidden>
+      <label class="sr" for="exSelect">Ejemplos</label>
+      <select id="exSelect" class="btn"></select>
+    </div>
+    <div class="bar-group plc">
+      <button class="run" id="btnRun" aria-pressed="true"><span class="led"></span><span id="runText">RUN</span></button>
+      <button class="btn" id="btnStep" disabled title="Ejecuta un scan de 100 ms (solo en STOP)">Paso</button>
+      <button class="btn" id="btnReset" title="Pone todas las entradas, salidas, temporizadores y contadores en cero">Reiniciar</button>
+    </div>
+  </div>
+</header>
+
+<main class="layout">
+  <section class="card code-card" aria-labelledby="codeTitle">
+    <div class="card-bar">
+      <h2 id="codeTitle">Código</h2>
+      <div class="tools">
+        <button class="btn sm" id="btnUndo" title="Deshacer (Ctrl+Z)">Deshacer</button>
+        <button class="btn sm" id="btnRedo" title="Rehacer (Ctrl+Y)">Rehacer</button>
+        <button class="btn sm" id="btnCopy">Copiar</button>
+      </div>
+    </div>
+    <div class="editor" id="editor">
+      <div class="gutter" aria-hidden="true"><div id="gutter"></div></div>
+      <div class="area">
+        <pre class="hl" aria-hidden="true"><code id="hl"></code></pre>
+        <textarea id="code" spellcheck="false" autocapitalize="off" autocomplete="off" wrap="off" aria-label="Código del programa Ladder"></textarea>
+      </div>
+    </div>
+    <div id="status" class="status" aria-live="polite"></div>
+    <details class="ref" id="ref">
+      <summary>Referencia del lenguaje</summary>
+      <div class="ref-body">
+        <p>Cada línea es una red: <code>condición -&gt; bobina</code>. El comentario de la línea anterior (<code># …</code>) es el título de la red.</p>
+        <table>
+          <tr><th>Escribís</th><th>Significa</th></tr>
+          <tr><td><code>I1 &amp; I2</code> · <code>I1 I2</code> · <code>I1 AND I2</code></td><td>Contactos en serie (Y)</td></tr>
+          <tr><td><code>I1 | I2</code> · <code>I1 + I2</code> · <code>I1 OR I2</code></td><td>Contactos en paralelo (O)</td></tr>
+          <tr><td><code>/I2</code> · <code>!I2</code> · <code>NOT I2</code></td><td>Contacto normalmente cerrado</td></tr>
+          <tr><td><code>(I1 | Q1) &amp; /I2</code></td><td>Paréntesis para agrupar. La Y se resuelve antes que la O.</td></tr>
+          <tr><td><code>-&gt; Q1</code></td><td>Bobina común</td></tr>
+          <tr><td><code>-&gt; /Q1</code></td><td>Bobina negada (activa cuando la red está abierta)</td></tr>
+          <tr><td><code>-&gt; S Q1</code> · <code>-&gt; R Q1</code></td><td>Set y reset (relé autoenclavador)</td></tr>
+          <tr><td><code>-&gt; T Q1</code></td><td>Relé de impulsos: cambia con cada flanco</td></tr>
+          <tr><td><code>-&gt; TON T1 5s</code></td><td>Retardo a la conexión. Contacto: <code>T1</code></td></tr>
+          <tr><td><code>-&gt; TOF T1 5s</code></td><td>Retardo a la desconexión</td></tr>
+          <tr><td><code>-&gt; TP T1 2s</code></td><td>Pulso de duración fija</td></tr>
+          <tr><td><code>-&gt; CTU CT1 6</code> · <code>-&gt; R CT1</code></td><td>Contador ascendente y su reset. Contacto: <code>CT1</code></td></tr>
+          <tr><td><code>-&gt; Q1, TON T1 5s</code></td><td>Varias bobinas en paralelo</td></tr>
+          <tr><td><code>entrada I1 pulsador "Marcha"</code></td><td>Tipos: pulsador, interruptor, sensor</td></tr>
+          <tr><td><code>salida Q1 motor "Motor"</code></td><td>Tipos: lampara, motor</td></tr>
+        </table>
+        <p>Los tiempos aceptan <code>ms</code>, <code>s</code> y <code>min</code>. Los nombres que leés y nunca activás se toman como entradas.</p>
+      </div>
+    </details>
+  </section>
+
+  <section class="right">
+    <div class="card dia-card">
+      <div class="card-bar">
+        <h2>Diagrama</h2>
+        <div class="tools">
+          <span class="seg" role="group" aria-label="Modo del diagrama">
+            <button id="modeEdit" aria-pressed="true">Editar</button>
+            <button id="modeOperate" aria-pressed="false">Operar</button>
+          </span>
+          <button class="btn sm" id="btnSvg" title="Descarga el diagrama como imagen SVG">Exportar SVG</button>
+        </div>
+      </div>
+      <div id="palette" class="palette" aria-label="Componentes para arrastrar"></div>
+      <p id="diaHint" class="hint"></p>
+      <div class="dia-scroll"><div id="dia" class="dia"></div></div>
+    </div>
+    <div class="io-grid">
+      <div class="card io"><div class="card-bar"><h2>Entradas</h2><label class="latch"><input type="checkbox" id="latch"> Retención</label></div><div id="inputs" class="rows"></div></div>
+      <div class="card io"><div class="card-bar"><h2>Salidas</h2></div><div id="outputs" class="rows"></div><div id="markers"></div></div>
+      <div class="card io" id="timersCard" hidden><div class="card-bar"><h2>Temporizadores y contadores</h2></div><div id="timers" class="rows"></div></div>
+      <div class="card io" id="ttCard" hidden><div class="card-bar"><h2>Tabla de verdad</h2></div><div id="tt" class="tt-wrap"></div></div>
+    </div>
+  </section>
+</main>
+
+<footer class="foot">
+  Banco Ladder · simulador educativo de Ladder (KOP) · los proyectos se guardan en este navegador. Usá "Guardar archivo" para llevarlos a otra computadora.
+</footer>
+
+<div id="drawer" class="drawer" hidden role="dialog" aria-modal="true" aria-labelledby="drawerTitle">
+  <div class="drawer-panel">
+    <div class="card-bar"><h2 id="drawerTitle">Mis proyectos</h2><button class="btn sm" id="drawerClose">Cerrar</button></div>
+    <div id="projList" class="proj-list"></div>
+  </div>
+</div>
+<div id="pop" class="pop" hidden role="dialog" aria-label="Editar elemento"></div>
+<div id="ghost" class="ghost" hidden></div>
+<div id="toast" class="toast" hidden role="status"></div>
+
+<script src="js/core.js"></script>
+<script src="js/examples.js"></script>
+<script src="js/storage.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
